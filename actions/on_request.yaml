@@ -12,3 +12,10 @@ parameters:
     type: string
     description: Command to run when a request is received.
     default: "echo webhook request received"
+  username:
+    type: string
+    default: "{{ st2kv.system.ssh_username }}"
+  password:
+    type: string
+    default: "{{ st2kv.system.ssh_password | decrypt_kv }}"
+    secret: true
