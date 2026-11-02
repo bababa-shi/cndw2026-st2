@@ -1,0 +1,14 @@
+---
+name: on_request
+runner_type: remote-shell-cmd
+description: Run echo when a webhook request is received. Swap cmd later for the real command.
+enabled: true
+entry_point: ""
+parameters:
+  host:
+    type: string
+    description: Remote host IP or hostname.
+  cmd:
+    type: string
+    description: Command to run when a request is received.
+    default: "echo webhook request received"

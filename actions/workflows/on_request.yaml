@@ -1,0 +1,16 @@
+version: 1.0
+
+description: Execute command.
+
+input:
+  - host
+  - cmd
+
+tasks:
+  execute:
+    action: scaling_pve.on_request
+    input:
+      host: <% ctx().host %>
+      cmd: <% ctx().cmd %>
+output:
+  - result: <% task(execute).result %>

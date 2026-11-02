@@ -1,0 +1,19 @@
+---
+name: on_request
+pack: scaling_pve
+description: Run echo when a POST request hits the webhook endpoint.
+enabled: true
+
+trigger:
+  type: core.st2.webhook
+  parameters:
+    url: /scale
+
+# criteria:
+#   trigger.body.hello:
+#     type: equals
+#     pattern: world
+
+action:
+  ref: scaling_pve.on_request
+  parameters: {}

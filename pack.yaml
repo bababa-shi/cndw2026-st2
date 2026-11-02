@@ -1,0 +1,21 @@
+---
+name: scaling_pve
+description: used in presentation of cndw 2026.
+keywords:
+    - cndw2026
+    - proxmox
+    - pve
+    - scaling
+# Pack version which must follow semver format (<major>.<minor>.<patch> e.g. 1.0.0)
+version: 1.0.0
+# A list of major Python versions pack is tested with and works with.
+python_versions:
+  - "3"
+# New in StackStorm 3.2
+# Specify a list of dependency packs to install. If the pack is in StackStorm Exchange you can use
+# the pack name, or you can specify a full Git repository URL. Optionally, you can specify the
+# exact version, tag, or branch.
+dependencies:
+  - core
+author: bababa
+email: itsukibaba0407@gmail.com
