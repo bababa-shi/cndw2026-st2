@@ -5,7 +5,7 @@ description: Run echo when a webhook request is received. Swap cmd later for the
 enabled: true
 entry_point: ""
 parameters:
-  host:
+  hosts:
     type: string
     description: Remote host IP or hostname.
   cmd:
@@ -15,7 +15,9 @@ parameters:
   username:
     type: string
     default: "{{ st2kv.system.ssh_username }}"
+    immutable: true
   password:
     type: string
     default: "{{ st2kv.system.ssh_password | decrypt_kv }}"
     secret: true
+    immutable: true
