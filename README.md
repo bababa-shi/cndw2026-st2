@@ -1,0 +1,3 @@
+- st2 key set work_dir "<dir>"
+- st2 key set ssh_username <user>
+- st2 key set ssh_password <pass> --encrypt
