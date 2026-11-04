@@ -25,3 +25,6 @@ parameters:
   cwd:
     type: string
     default: "{{ st2kv.system.work_dir }}"
+  timeout:
+    type: integer
+    default: 6000
