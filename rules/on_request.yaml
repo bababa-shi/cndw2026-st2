@@ -13,6 +13,6 @@ action:
   ref: scaling_pve.on_request
   parameters:
     direction: "{{ trigger.body.direction | default('auto') }}"
-    terraform_host: "{{ trigger.body.terraform_host | default('localhost') }}"
-    lb_host: "{{ trigger.body.lb_host | default('localhost') }}"
+    terraform_host: "{{ trigger.body.terraform_host | default(st2kv.system.tf_host) }}"
+    lb_host: "{{ trigger.body.lb_host | default(st2kv.system.lb_host) }}"
     total_machines: "{{ trigger.body.total_machines | default(none) | use_none }}"
