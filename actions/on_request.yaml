@@ -1,25 +1,56 @@
 ---
 name: on_request
-runner_type: remote-shell-cmd
-description: Run echo when a webhook request is received. Swap cmd later for the real command.
+runner_type: orquesta
+description: Scale the Proxmox web tier and reconcile the HAProxy backend.
 enabled: true
-entry_point: ""
+entry_point: workflows/on_request.yaml
 parameters:
-  hosts:
+  direction:
     type: string
-    description: Remote host IP or hostname.
-  cmd:
+    description: Scaling direction sent by the monitor.
+    enum:
+      - auto
+      - scale_out
+      - scale_in
+    default: auto
+  terraform_host:
     type: string
-    description: Command to run when a request is received.
-  username:
+    description: Host on which the Terraform working directory is available.
+    default: "{{ st2kv.system.tf_host }}"
+  lb_host:
     type: string
-    default: "{{ st2kv.system.ssh_username }}"
-    immutable: true
-  password:
+    description: Host exposing the HAProxy runtime socket.
+    default: "{{ st2kv.system.lb_host }}"
+  min_machines:
+    type: integer
+    description: Lower bound for total_machines.
+    default: 2
+  max_machines:
+    type: integer
+    description: Upper bound for total_machines.
+    default: 5
+  total_machines:
+    type: integer
+    description: Optional absolute target for total_machines. Omit to change by one.
+    required: false
+    default: null
+  terraform_dir:
     type: string
-    default: "{{ st2kv.system.ssh_password | decrypt_kv }}"
-    secret: true
-    immutable: true
-  cwd:
-    type: string
+    description: Terraform working directory.
     default: "{{ st2kv.system.work_dir }}"
+  terraform_ip_output:
+    type: string
+    description: Terraform output containing the worker IP list.
+    default: worker_ips
+  lb_socket:
+    type: string
+    description: HAProxy admin socket path.
+    default: /run/haproxy/admin.sock
+  lb_backend:
+    type: string
+    description: HAProxy backend name.
+    default: web_back
+  lb_server_prefix:
+    type: string
+    description: Prefix used for generated HAProxy server names.
+    default: web

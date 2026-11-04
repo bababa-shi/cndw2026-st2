@@ -1,7 +1,7 @@
 ---
 name: on_request
 pack: scaling_pve
-description: Run echo when a POST request hits the webhook endpoint.
+description: Scale the Proxmox web tier when a POST request hits the webhook endpoint.
 enabled: true
 
 trigger:
@@ -9,11 +9,10 @@ trigger:
   parameters:
     url: /scale
 
-# criteria:
-#   trigger.body.hello:
-#     type: equals
-#     pattern: world
-
 action:
   ref: scaling_pve.on_request
-  parameters: {}
+  parameters:
+    direction: "{{ trigger.body.direction | default('auto') }}"
+    terraform_host: "{{ trigger.body.terraform_host | default('localhost') }}"
+    lb_host: "{{ trigger.body.lb_host | default('localhost') }}"
+    total_machines: "{{ trigger.body.total_machines | default(none) | use_none }}"

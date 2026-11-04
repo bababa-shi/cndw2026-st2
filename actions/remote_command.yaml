@@ -1,0 +1,27 @@
+---
+name: remote_command
+runner_type: remote-shell-cmd
+description: Execute a configured command on a single Linux host over SSH.
+enabled: true
+entry_point: ""
+parameters:
+  hosts:
+    type: string
+    description: Remote host IP or hostname. This action is intentionally single-host.
+    required: true
+  cmd:
+    type: string
+    description: Command to run on the remote host.
+    required: true
+  username:
+    type: string
+    default: "{{ st2kv.system.ssh_username }}"
+    immutable: true
+  password:
+    type: string
+    default: "{{ st2kv.system.ssh_password | decrypt_kv }}"
+    secret: true
+    immutable: true
+  cwd:
+    type: string
+    default: "{{ st2kv.system.work_dir }}"

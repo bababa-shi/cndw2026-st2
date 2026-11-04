@@ -1,16 +1,171 @@
 version: 1.0
 
-description: Execute command.
+description: >
+  Scale the Terraform-managed Proxmox web tier and reconcile the HAProxy
+  backend. Requests outside the configured capacity range are ignored.
 
 input:
-  - hosts
-  - cmd
+  - direction: auto
+  - terraform_host: "{{ st2kv.system.tf_host }}"
+  - lb_host: "{{ st2kv.system.lb_host }}"
+  - min_machines: 2
+  - max_machines: 5
+  - total_machines: null
+  - terraform_dir: "{{ st2kv.system.work_dir }}"
+  - terraform_ip_output: worker_ips
+  - lb_socket: /run/haproxy/admin.sock
+  - lb_backend: web_back
+  - lb_server_prefix: web
+
+vars:
+  - current_machines: null
+  - target_machines: null
+  - new_ips_json: null
 
 tasks:
-  execute:
-    action: scaling_pve.on_request
+  # 現在の台数を取得
+  read_current_count:
+    action: scaling_pve.remote_command
     input:
-      host: <% ctx().host %>
-      cmd: <% ctx().cmd %>
+      hosts: <% ctx(terraform_host) %>
+      cwd: <% ctx(terraform_dir) %>
+      cmd: >-
+        set -eu;
+        count="$(terraform output -raw total_machines | tr -d '[:space:]')";
+        case "$count" in
+          ''|*[!0-9]*) echo 'total_machines must be a non-negative integer' >&2; exit 1 ;;
+        esac;
+        printf '%s' "$count"
+    next:
+      - when: <% succeeded() %>
+        publish:
+          - current_machines: <% int(result().get(ctx(terraform_host)).get('stdout')) %>
+        do: inspect_capacity
+
+  # スケーリング語に範囲外にならないかチェック
+  inspect_capacity:
+    action: core.noop
+    next:
+      - when: <% ctx(direction) = 'scale_out' and ctx(total_machines) != null and ctx(total_machines) > ctx(current_machines) and ctx(total_machines) <= ctx(max_machines) %>
+        publish:
+          - target_machines: <% ctx(total_machines) %>
+        do: apply_scale_out
+      - when: <% ctx(direction) = 'scale_in' and ctx(total_machines) != null and ctx(total_machines) < ctx(current_machines) and ctx(total_machines) >= ctx(min_machines) %>
+        publish:
+          - target_machines: <% ctx(total_machines) %>
+        do: apply_scale_in
+      - when: <% ctx(direction) = 'scale_out' and ctx(total_machines) = null and ctx(current_machines) < ctx(max_machines) %>
+        publish:
+          - target_machines: <% ctx(current_machines) + 1 %>
+        do: apply_scale_out
+      - when: <% ctx(direction) = 'scale_in' and ctx(total_machines) = null and ctx(current_machines) > ctx(min_machines) %>
+        publish:
+          - target_machines: <% ctx(current_machines) - 1 %>
+        do: apply_scale_in
+      - do: noop
+
+  # スケールアウトを実行
+  apply_scale_out:
+    action: scaling_pve.remote_command
+    input:
+      hosts: <% ctx(terraform_host) %>
+      cwd: <% ctx(terraform_dir) %>
+      cmd: >-
+        set -eu;
+        terraform apply -auto-approve
+        -var "total_machines=<% ctx(target_machines) %>"
+    next:
+      - when: <% succeeded() %>
+        do: capture_scale_out_ip
+
+  # 作成されたインスタンスのIPアドレスを取得
+  capture_scale_out_ip:
+    action: scaling_pve.remote_command
+    input:
+      hosts: <% ctx(terraform_host) %>
+      cwd: <% ctx(terraform_dir) %>
+      env:
+        TF_IP_OUTPUT: <% ctx(terraform_ip_output) %>
+      cmd: >-
+        set -eu;
+        terraform output -json |
+        jq -er --arg name "$TF_IP_OUTPUT"
+        '.[$name].value |
+        if type == "array" then .[<% ctx(current_machines) %>:<% ctx(target_machines) %>] else [.] end |
+        if length > 0 and all(.[]; type == "string" and length > 0) then . else error("worker IP output is empty or invalid") end'
+    next:
+      - when: <% succeeded() %>
+        publish:
+          - new_ips_json: <% result().get(ctx(terraform_host)).get('stdout').trim() %>
+        do: register_lb
+
+  # 生成されたインスタンスをLBに登録
+  register_lb:
+    action: scaling_pve.remote_command
+    input:
+      hosts: <% ctx(lb_host) %>
+      env:
+        LB_BACKEND: <% ctx(lb_backend) %>
+        LB_SERVER_PREFIX: <% ctx(lb_server_prefix) %>
+        LB_START_INDEX: <% str(ctx(current_machines) + 1) %>
+        LB_IPS_JSON: <% ctx(new_ips_json) %>
+        LB_SOCKET: <% ctx(lb_socket) %>
+      cmd: >-
+        set -eu;
+        i="$LB_START_INDEX";
+        printf '%s' "$LB_IPS_JSON" | jq -er '.[]' |
+        while IFS= read -r ip; do
+          server_name="$(printf '%s%02d' "$LB_SERVER_PREFIX" "$i")";
+          printf 'add server %s/%s %s:80 check\n' "$LB_BACKEND" "$server_name" "$ip";
+          i=$((i + 1));
+        done |
+        sudo socat stdio "$LB_SOCKET"
+    next:
+      - when: <% succeeded() %>
+        do: finish
+
+  # スケールインを実行
+  apply_scale_in:
+    action: scaling_pve.remote_command
+    input:
+      hosts: <% ctx(terraform_host) %>
+      cwd: <% ctx(terraform_dir) %>
+      cmd: >-
+        set -eu;
+        terraform apply -auto-approve
+        -var "total_machines=<% ctx(target_machines) %>"
+    next:
+      - when: <% succeeded() %>
+        do: deregister_lb
+
+  # 削除されたインスタンスをLBから削除
+  deregister_lb:
+    action: scaling_pve.remote_command
+    input:
+      hosts: <% ctx(lb_host) %>
+      env:
+        LB_BACKEND: <% ctx(lb_backend) %>
+        LB_SERVER_PREFIX: <% ctx(lb_server_prefix) %>
+        LB_FIRST_INDEX: <% str(ctx(target_machines) + 1) %>
+        LB_LAST_INDEX: <% str(ctx(current_machines)) %>
+        LB_SOCKET: <% ctx(lb_socket) %>
+      cmd: >-
+        set -eu;
+        i="$LB_FIRST_INDEX";
+        while [ "$i" -le "$LB_LAST_INDEX" ]; do
+          server_name="$(printf '%s%02d' "$LB_SERVER_PREFIX" "$i")";
+          printf 'del server %s/%s\n' "$LB_BACKEND" "$server_name";
+          i=$((i + 1));
+        done |
+        sudo socat stdio "$LB_SOCKET"
+    next:
+      - when: <% succeeded() %>
+        do: finish
+
+  finish:
+    action: core.noop
+
 output:
-  - result: <% task(execute).result %>
+  - current_machines: <% ctx(current_machines) %>
+  - target_machines: <% ctx(target_machines) %>
+  - direction: <% ctx(direction) %>
