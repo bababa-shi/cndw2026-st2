@@ -89,13 +89,13 @@ tasks:
       cmd: >-
         set -eu;
         terraform output -json |
-        jq -er --arg name "$TF_IP_OUTPUT"
+        jq -e --arg name "$TF_IP_OUTPUT"
         '.[$name].value |
         if type == "array" then .
         elif type == "object" then [.[]]
         else error("worker IP output has unsupported type: \(type)") end |
         .[<% ctx(current_machines) %>:<% ctx(target_machines) %>] |
-        if length > 0 and all(.[]; type == "string" and length > 0) then . else error("worker IP output is empty or invalid") end'
+        if length > 0 and all(.[]; type == "string" and length > 0) then tojson else error("worker IP output is empty or invalid") end'
     next:
       - when: <% succeeded() %>
         publish:
