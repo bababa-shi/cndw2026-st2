@@ -120,6 +120,8 @@ tasks:
         while IFS= read -r ip; do
           server_name="$(printf '%s%02d' "$LB_SERVER_PREFIX" "$i")";
           printf 'add server %s/%s %s:80 check\n' "$LB_BACKEND" "$server_name" "$ip";
+          printf 'set server %s/%s state ready\n' "$LB_BACKEND" "$server_name";
+          printf 'enable health %s/%s\n' "$LB_BACKEND" "$server_name";
           i=$((i + 1));
         done |
         sudo socat stdio "$LB_SOCKET"

@@ -1,9 +1,9 @@
 ---
-name: on_request
+name: scale
 runner_type: orquesta
 description: Scale the Proxmox web tier and reconcile the HAProxy backend.
 enabled: true
-entry_point: workflows/on_request.yaml
+entry_point: workflows/scale.yaml
 parameters:
   direction:
     type: string
