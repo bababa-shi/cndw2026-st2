@@ -62,7 +62,7 @@ tasks:
         publish:
           - target_machines: <% ctx(current_machines) - 1 %>
         do: apply_scale_in
-      - do: noop
+      - do: finish
 
   # スケールアウトを実行
   apply_scale_out:
@@ -107,6 +107,8 @@ tasks:
     action: scaling_pve.remote_command
     input:
       hosts: <% ctx(lb_host) %>
+      cwd: /tmp
+      sudo: true
       env:
         LB_BACKEND: <% ctx(lb_backend) %>
         LB_SERVER_PREFIX: <% ctx(lb_server_prefix) %>
@@ -124,7 +126,7 @@ tasks:
           printf 'enable health %s/%s\n' "$LB_BACKEND" "$server_name";
           i=$((i + 1));
         done |
-        sudo socat stdio "$LB_SOCKET"
+        socat stdio "$LB_SOCKET"
     next:
       - when: <% succeeded() %>
         do: finish
@@ -148,6 +150,8 @@ tasks:
     action: scaling_pve.remote_command
     input:
       hosts: <% ctx(lb_host) %>
+      cwd: /tmp
+      sudo: true
       env:
         LB_BACKEND: <% ctx(lb_backend) %>
         LB_SERVER_PREFIX: <% ctx(lb_server_prefix) %>
@@ -162,7 +166,7 @@ tasks:
           printf 'del server %s/%s\n' "$LB_BACKEND" "$server_name";
           i=$((i + 1));
         done |
-        sudo socat stdio "$LB_SOCKET"
+        socat stdio "$LB_SOCKET"
     next:
       - when: <% succeeded() %>
         do: finish

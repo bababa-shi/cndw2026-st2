@@ -33,7 +33,7 @@ CNDW 2026 のデモ用 StackStorm pack。Proxmox 上の Web 層を Terraform で
 - `terraform` と `jq` がインストール済み
 - 対象ディレクトリで `terraform apply` できる
 - `total_machines` 変数を持ち、VM 台数に反映する
-- `total_machines` 出力（数値）と `worker_ips` 出力（文字列リスト）を持つ
+- `total_machines` 出力（数値）と `worker_ips` 出力（文字列リスト、または VM 名から IP への object）を持つ
 - `worker_ips` は VM のインデックス順で、新規 VM が末尾に追加されること（scale out 時に `[current:target]` で切り出すため）
 
 ### HAProxy ホスト
@@ -95,6 +95,8 @@ sudo visudo -f /etc/sudoers.d/scaling-pve
 ```
 
 `which socat` でパスを確認してください。
+
+sudoers を設定しない場合、`remote_command` action は既定で `st2kv.system.ssh_password` を sudo パスワードとして使用します。SSH と sudo のパスワードが異なる環境では sudoers を設定してください。
 
 ### 4. HAProxy の設定
 

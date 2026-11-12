@@ -22,6 +22,16 @@ parameters:
     default: "{{ st2kv.system.ssh_password | decrypt_kv }}"
     secret: true
     immutable: true
+  sudo:
+    type: boolean
+    description: Execute the command with sudo.
+    default: false
+  sudo_password:
+    type: string
+    description: Password used for sudo when passwordless sudo is not configured.
+    default: "{{ st2kv.system.ssh_password | decrypt_kv }}"
+    secret: true
+    immutable: true
   cwd:
     type: string
     default: "{{ st2kv.system.work_dir }}"
